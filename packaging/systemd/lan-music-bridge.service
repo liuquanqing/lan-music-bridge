@@ -1,0 +1,27 @@
+[Unit]
+Description=LAN Music Bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lanmusic
+Group=lanmusic
+ExecStart=/opt/lan-music-bridge/current/venv/bin/lan-music-bridge --config /etc/lan-music-bridge/config.toml serve
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/lan-music-bridge
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

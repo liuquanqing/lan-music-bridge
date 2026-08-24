@@ -1,0 +1,25 @@
+# Public example values use RFC 5737 documentation space. Replace them locally.
+[network]
+media_host = "0.0.0.0"
+media_port = 49500
+public_base_url = "http://192.0.2.10:49500"
+admin_host = "127.0.0.1"
+admin_port = 49501
+
+[cache]
+directory = "/var/lib/lan-music-bridge/cache"
+max_bytes = 10737418240
+
+[sources]
+allowed_hosts = ["media.example"]
+allow_private = false
+max_download_bytes = 2147483648
+
+[discovery]
+source_ip = "0.0.0.0"
+timeout_seconds = 2.0
+
+[publisher]
+# Leave empty to serve immutable cached media from this bridge.
+# A private device-local publisher can use "package.module:create_publisher".
+factory = ""

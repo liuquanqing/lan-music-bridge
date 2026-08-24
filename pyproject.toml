@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lan-music-bridge"
+version = "0.1.0"
+description = "A vendor-neutral UPnP/OpenHome bridge with safe streaming and local media caching"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "lan-music-bridge contributors" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Sound/Audio",
+]
+dependencies = []
+
+[project.scripts]
+lan-music-bridge = "lan_music_bridge.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
