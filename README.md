@@ -18,7 +18,7 @@ tests, but it has not been certified against every renderer or network layout.
   URLs, tokens, cookies, or queue metadata;
 - a loopback-only administration API and CLI;
 - a stable publisher adapter boundary for device-local storage integrations;
-- systemd and OpenWrt packaging examples, tests, GitLab CI, and release audits.
+- systemd and OpenWrt packaging examples, tests, GitHub Actions CI, and release audits.
 
 Private provider resolvers, account login flows, device-specific storage protocols,
 firmware files, media, credentials, and household deployment configuration are not

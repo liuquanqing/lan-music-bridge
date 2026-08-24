@@ -11,7 +11,7 @@ This repository may be pushed only from a clean release tree.
    negative test that proves a secret in a tracked dotfile is rejected.
 4. Review `git status --short`, `git diff --check`, and the exact staged file list.
 5. Record the exact commit SHA before an external push.
-6. Create the GitLab project only after visibility, namespace, name, license, and
+6. Create the GitHub repository only after visibility, namespace, name, license, and
    provenance are reviewed.
 7. Push the default branch, then read back remote visibility, branch, commit SHA, and
    CI status. A successful transport alone is not release acceptance.

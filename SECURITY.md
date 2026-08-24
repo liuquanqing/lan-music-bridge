@@ -8,7 +8,7 @@ LAN and keep a rollback path.
 
 ## Reporting a vulnerability
 
-Use the GitLab project's private vulnerability-reporting channel when available.
+Use the GitHub repository's private vulnerability-reporting channel when available.
 Do not include credentials, cookies, signed URLs, device identifiers, private media,
 or complete household topology in an issue. A minimal redacted reproduction and the
 exact commit SHA are sufficient to begin triage.
