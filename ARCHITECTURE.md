@@ -35,6 +35,10 @@ For a new item, the controller selects the standard OpenHome `Playlist` Product
 source when the Product service is available, then runs
 `DeleteAll -> Insert -> SeekId -> Play`. Play and transport mutations are serialized
 per renderer so concurrent administration requests cannot interleave those steps.
+The runtime assigns a per-renderer intent generation before media preparation. A
+newer play or transport command supersedes any older request that has not begun its
+renderer mutation, so slower cache or publisher work cannot restore an obsolete
+target after the latest selection.
 If Product source selection fails, queue mutation does not begin. UPnP uses
 `SetAVTransportURI -> Play`. The controller returns only a protocol receipt; it does
 not persist renderer names, addresses, queue metadata, or source URLs.

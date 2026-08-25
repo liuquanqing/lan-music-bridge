@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.3.0 - Unreleased
+
+- Make renderer intent last-target-wins across media preparation: a newer play or
+  transport command supersedes any older request that has not started its renderer
+  mutation.
+- Reframe the bilingual README around deployment on an always-on router or Linux
+  gateway, with device-local publication as the recommended adapter path and
+  UPnP/OpenHome streaming as the immediate compatibility path.
+- State the quality boundary explicitly: byte-complete caching and no implicit
+  transcoding are verifiable, but caching alone does not promise better sound.
+- Keep provider quality selection, device queue/prefetch generations, output-event
+  reconciliation, and concrete device-library import outside the public core.
+
 ## 0.2.0 - 2026-08-25
 
 - Make the GitHub landing README bilingual, with Simplified Chinese displayed first
@@ -26,7 +39,7 @@ All notable changes to this project are documented in this file.
 - Use the package version as the single source for build metadata, runtime health,
   and HTTP server identification.
 
-This maintenance release does not include private S26 deployment code, provider
+This maintenance release does not include private deployment code, provider
 credentials, account resolvers, or device-specific adapters.
 
 ## 0.1.0 - 2026-08-24

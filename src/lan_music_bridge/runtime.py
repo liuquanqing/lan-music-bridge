@@ -8,11 +8,12 @@ import threading
 import time
 from dataclasses import asdict
 from pathlib import Path
+from typing import Callable
 
 from . import __version__
 from .cache import CacheStore
 from .config import Settings
-from .control import RendererController
+from .control import ControlError, RendererController
 from .discovery import SsdpDiscovery
 from .models import PlaybackReceipt, Renderer
 from .publishers import load_publisher
@@ -38,6 +39,10 @@ class SourceRegistry:
             except KeyError as error:
                 raise KeyError("unknown or expired stream token") from error
 
+    def discard(self, token: str) -> None:
+        with self._lock:
+            self._sources.pop(token, None)
+
     def prune_locked(self) -> None:
         now = time.monotonic()
         for token, (_, expires) in list(self._sources.items()):
@@ -48,6 +53,10 @@ class SourceRegistry:
         with self._lock:
             self.prune_locked()
             return len(self._sources)
+
+
+class RendererIntentSuperseded(RuntimeError):
+    """An older renderer intent finished preparing after a newer request arrived."""
 
 
 class BridgeRuntime:
@@ -62,6 +71,32 @@ class BridgeRuntime:
         self.renderers: list[Renderer] = []
         self.last_protocol = ""
         self.logger = logging.getLogger("lan_music_bridge")
+        self._intent_state_lock = threading.Lock()
+        self._intent_generations: dict[str, int] = {}
+        self._intent_apply_locks: dict[str, threading.Lock] = {}
+
+    def _begin_renderer_intent(
+        self, renderer: Renderer
+    ) -> tuple[str, int, threading.Lock]:
+        key = renderer.udn or renderer.location
+        with self._intent_state_lock:
+            generation = self._intent_generations.get(key, 0) + 1
+            self._intent_generations[key] = generation
+            apply_lock = self._intent_apply_locks.setdefault(key, threading.Lock())
+        return key, generation, apply_lock
+
+    def _apply_current_intent(
+        self,
+        key: str,
+        generation: int,
+        apply_lock: threading.Lock,
+        operation: Callable[[], str],
+    ) -> str:
+        with apply_lock:
+            with self._intent_state_lock:
+                if self._intent_generations.get(key) != generation:
+                    raise RendererIntentSuperseded("renderer intent was superseded")
+            return operation()
 
     def health(self) -> dict[str, object]:
         return {
@@ -104,15 +139,22 @@ class BridgeRuntime:
     ) -> dict[str, str]:
         renderer = self._select(selector)
         normalized = mode.lower()
+        if normalized not in {"stream", "local"}:
+            raise ValueError("mode must be stream or local")
+        if not source:
+            raise ValueError("media source is required")
         if normalized == "stream":
             validate_source_url(source, self.settings)
             if not self.settings.public_base_url:
                 raise ValueError("public_base_url is required for stream mode")
-            token = self.sources.register(source)
-            uri = f"{self.settings.public_base_url.rstrip('/')}/stream/{token}"
+        intent_key, generation, apply_lock = self._begin_renderer_intent(renderer)
+        stream_token = ""
+        if normalized == "stream":
+            stream_token = self.sources.register(source)
+            uri = f"{self.settings.public_base_url.rstrip('/')}/stream/{stream_token}"
             media_fingerprint = fingerprint(source)
             media_type = content_type or "audio/mpeg"
-        elif normalized == "local":
+        else:
             if source.startswith(("http://", "https://")):
                 entry = self.cache.ingest_url(source)
             else:
@@ -121,9 +163,26 @@ class BridgeRuntime:
             uri = self.publisher.publish(entry)
             media_fingerprint = entry.digest[:12]
             media_type = entry.content_type
-        else:
-            raise ValueError("mode must be stream or local")
-        protocol = self.controller.play(renderer, uri, title=title, content_type=media_type)
+        try:
+            protocol = self._apply_current_intent(
+                intent_key,
+                generation,
+                apply_lock,
+                lambda: self.controller.play(
+                    renderer, uri, title=title, content_type=media_type
+                ),
+            )
+        except RendererIntentSuperseded:
+            if stream_token:
+                self.sources.discard(stream_token)
+            log_event(
+                self.logger,
+                "play_superseded",
+                renderer_id=fingerprint(renderer.udn or renderer.location),
+                mode=normalized,
+                media_fingerprint=media_fingerprint,
+            )
+            raise
         self.last_protocol = protocol
         receipt = PlaybackReceipt(
             renderer_id=fingerprint(renderer.udn or renderer.location),
@@ -143,7 +202,15 @@ class BridgeRuntime:
 
     def command(self, selector: str, action: str) -> dict[str, str]:
         renderer = self._select(selector)
-        protocol = self.controller.command(renderer, action)
+        if action.lower() not in {"play", "pause", "stop"}:
+            raise ControlError("unsupported command")
+        intent_key, generation, apply_lock = self._begin_renderer_intent(renderer)
+        protocol = self._apply_current_intent(
+            intent_key,
+            generation,
+            apply_lock,
+            lambda: self.controller.command(renderer, action),
+        )
         self.last_protocol = protocol
         log_event(
             self.logger,
