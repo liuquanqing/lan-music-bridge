@@ -68,6 +68,8 @@ class MediaServerTests(unittest.TestCase):
                 error.close()
         rendered = "\n".join(capture.output)
         self.assertNotIn(token, rendered)
+        self.assertNotIn("127.0.0.1", rendered)
+        self.assertIn("peer_fingerprint", rendered)
         self.assertIn("/stream/<redacted>", rendered)
 
 

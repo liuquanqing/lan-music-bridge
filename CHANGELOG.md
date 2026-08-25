@@ -7,13 +7,23 @@ All notable changes to this project are documented in this file.
 - Make renderer intent last-target-wins across media preparation: a newer play or
   transport command supersedes any older request that has not started its renderer
   mutation.
+- Reject a downloaded cache candidate when a declared `Content-Length` does not match
+  the received byte count, before publishing a blob.
+- Replace raw HTTP peer addresses in structured access logs with irreversible short
+  fingerprints.
+- Add CLI `play --content-type` passthrough for renderers that require an explicit MIME
+  declaration; retain `audio/mpeg` for streams and extension inference for local files.
 - Reframe the bilingual README around deployment on an always-on router or Linux
   gateway, with device-local publication as the recommended adapter path and
   UPnP/OpenHome streaming as the immediate compatibility path.
-- State the quality boundary explicitly: byte-complete caching and no implicit
-  transcoding are verifiable, but caching alone does not promise better sound.
-- Keep provider quality selection, device queue/prefetch generations, output-event
-  reconciliation, and concrete device-library import outside the public core.
+- State the quality boundary explicitly: declared-length validation,
+  content-addressing of received bytes, and no implicit transcoding are verifiable,
+  but caching alone does not promise better sound.
+- Document that the core has no provider plugin or quality contract, pinning has no
+  CLI/API, stream tokens default to six hours, and media health/readiness endpoints are
+  unauthenticated on trusted LANs.
+- Keep device queue/prefetch generations, output-event reconciliation, and concrete
+  device-library import outside the public core.
 
 ## 0.2.0 - 2026-08-25
 

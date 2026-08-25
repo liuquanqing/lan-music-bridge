@@ -64,7 +64,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         log_event(
             logging.getLogger("lan_music_bridge.http"),
             "http_request",
-            peer=self.client_address[0],
+            peer_fingerprint=fingerprint(self.client_address[0]),
             method=self.command,
             route=route,
             status=status,

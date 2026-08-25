@@ -24,14 +24,20 @@ exact commit SHA are sufficient to begin triage.
   and HTTPS retains hostname certificate validation.
 - Stream URLs are held only in memory behind random tokens and expire after six hours.
 - Cache records persist fingerprints rather than raw source URLs.
-- Health and ordinary logs omit URLs, headers, queue metadata, device addresses, and
-  identities. Error responses are deliberately generic.
-- Downloads are size-capped, written atomically, and content-addressed.
+- `/health` and `/ready` return minimal state without authentication on the media
+  listener. HTTP peer addresses are recorded only as irreversible short fingerprints;
+  structured logs omit raw URLs, headers, queue metadata, and credentials. Error
+  responses are deliberately generic.
+- Downloads are size-capped, written atomically, and content-addressed. When an
+  upstream declares `Content-Length`, a mismatch prevents blob publication. Without
+  a declared length, the digest covers the bytes actually received and cannot prove
+  the total the upstream intended to send.
 
 ## Deployment responsibilities
 
-The media server has no user authentication or TLS. Restrict it with the host firewall
-to renderer networks that need it. A SHA-256 media path is not an authorization token.
+The media server, including `/health` and `/ready`, has no user authentication or TLS.
+Restrict it with the host firewall to renderer networks that need it. The separate
+administration listener remains loopback-only. A SHA-256 media path is not an authorization token.
 Cache storage is not encrypted by this application; use encrypted storage when media
 confidentiality at rest matters.
 

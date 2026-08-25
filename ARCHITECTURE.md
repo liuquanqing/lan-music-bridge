@@ -21,9 +21,10 @@ orchestrator ---- SSDP discovery ---- renderer descriptions
                                                         +---- private device adapter
 ```
 
-The core never imports a provider SDK, carries account state, or assumes a specific
-renderer model. A deployment can supply a source URL to the core or install a trusted
-publisher adapter without changing protocol, cache, health, or logging behavior.
+The core has no provider plugin interface, never imports a provider SDK, carries
+account state, or assumes a specific renderer model. A user's external workflow can
+supply a local file or allow-listed source URL to the core. A deployment can install a
+trusted publisher adapter without changing protocol, cache, health, or logging behavior.
 
 ## Control path
 
@@ -53,9 +54,13 @@ are rejected, and TLS certificates are checked against the original host name.
 ## Local cache path
 
 Downloads and local-file ingests are streamed into a private temporary file while a
-SHA-256 digest is computed. The file is fsynced and atomically renamed into an
-immutable blob path. SQLite stores only digest, size, MIME type, timestamps, pin state,
-and an irreversible source fingerprint. Raw URLs are never persisted.
+SHA-256 digest is computed. When an upstream declares `Content-Length`, the received
+length must match exactly before the blob is published. Without a declared length,
+the digest covers the bytes actually received but cannot establish the upstream's
+intended total. The file is fsynced and atomically renamed into an immutable blob path.
+SQLite stores only digest, size, MIME type, timestamps, pin state, and an irreversible
+source fingerprint. Raw URLs are never persisted. The storage layer exposes a pin
+method internally, but no CLI or administration API currently makes it a user feature.
 
 The default publisher exposes `/media/<sha256>` with single-range support. An adapter
 may instead copy the completed blob to a renderer library and return its indexed URI.
@@ -65,6 +70,9 @@ owned by that separately installed deployment layer.
 ## Health and logs
 
 `/health` reports version, uptime, cache counts, active stream-token count, and the
-last protocol family. It omits device identity, IP addresses, titles, URLs, queue
-state, headers, and credentials. Structured logs apply key-based and URL-shaped value
-redaction before serialization.
+last protocol family; `/ready` reports readiness. Both are unauthenticated on the
+media listener and are intended only for trusted LANs. They omit device identity, IP
+addresses, titles, URLs, queue state, headers, and credentials. The administration
+listener remains loopback-only. Structured logs replace HTTP peer addresses with
+irreversible short fingerprints and apply key-based and URL-shaped value redaction
+before serialization.

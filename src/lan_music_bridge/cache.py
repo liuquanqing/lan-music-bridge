@@ -54,6 +54,7 @@ class CacheStore:
         content_type: str,
         source_fingerprint: str,
         max_bytes: int,
+        expected_bytes: int | None = None,
     ) -> CacheEntry:
         digest = hashlib.sha256()
         size = 0
@@ -69,6 +70,8 @@ class CacheStore:
                         raise ValueError("media exceeds configured size limit")
                     digest.update(block)
                     target.write(block)
+                if expected_bytes is not None and size != expected_bytes:
+                    raise ValueError("media length does not match Content-Length")
                 target.flush()
                 os.fsync(target.fileno())
             hexdigest = digest.hexdigest()
@@ -116,7 +119,15 @@ class CacheStore:
     def ingest_url(self, url: str) -> CacheEntry:
         with open_source(url, self.settings, timeout=20) as response:
             declared = response.headers.get("Content-Length")
-            if declared and int(declared) > self.settings.source_max_bytes:
+            expected_bytes = None
+            if declared is not None:
+                try:
+                    expected_bytes = int(declared)
+                except ValueError as error:
+                    raise ValueError("invalid Content-Length") from error
+                if expected_bytes < 0:
+                    raise ValueError("invalid Content-Length")
+            if expected_bytes is not None and expected_bytes > self.settings.source_max_bytes:
                 raise ValueError("media exceeds configured size limit")
             content_type = response.headers.get_content_type()
             return self._write_stream(
@@ -124,6 +135,7 @@ class CacheStore:
                 content_type,
                 f"url:{fingerprint(url)}",
                 self.settings.source_max_bytes,
+                expected_bytes,
             )
 
     def get(self, digest: str) -> CacheEntry:

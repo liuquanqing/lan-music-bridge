@@ -49,6 +49,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="read source URL from stdin so signed URLs do not enter shell history",
     )
     play.add_argument("--title", default="LAN media")
+    play.add_argument(
+        "--content-type",
+        default="",
+        help="explicit media MIME type for strict renderers",
+    )
     control = commands.add_parser("control", help="send play, pause, or stop")
     control.add_argument("--renderer", required=True)
     control.add_argument("action", choices=("play", "pause", "stop"))
@@ -96,6 +101,7 @@ def main(argv: list[str] | None = None) -> int:
                 "mode": args.mode,
                 "source": media_source,
                 "title": args.title,
+                "content_type": args.content_type,
             },
         )
     elif args.command == "control":
