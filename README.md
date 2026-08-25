@@ -4,20 +4,20 @@
 
 ## 简体中文
 
-LAN Music Bridge 是部署在软路由上的数播音乐中枢。它接过你有权使用的歌曲文件或
-播放地址，由常开网关完成下载校验、缓存和播放控制，让播放不再依赖手机会话或临时
-链接；设备支持本地曲库导入时优先走本地播放，否则使用 UPnP/OpenHome 推流。
+LAN Music Bridge 是部署在软路由上的数播音乐中枢，面向重视音质和播放稳定性的用户。
+它先下载、校验并缓存你有权使用的歌曲；对本地播放优于网络推流的数播，优先送入本地
+曲库，不能导入时再由常开软路由提供 UPnP/OpenHome 推流和控制。
 
-发烧友常遇到手机投播中断、平台给出的文件版本不符合预期、数播网络播放不稳，或
-同一台设备的本地播放链路表现更好。LAN Music Bridge
-负责“音源已经拿到”之后的稳定交付；音源版本选择和平台登录仍由外部合法流程负责。
+一些手机音乐应用的投播会话与数播的网络播放实现衔接不稳，常见结果是播放中断、
+切歌失败和旧请求覆盖。LAN Music Bridge 从“音源已经拿到”开始接管播放，稳定上游
+地址和控制顺序；音乐平台登录、音质版本选择仍由外部合法流程负责。
 
 | 功能 | 解决的问题 |
 |---|---|
+| 数播本地曲库适配（推荐） | 可通过设备适配器把歌曲复制并索引到数播本地库，使用设备自身的本地播放链路；公共项目提供接口，不含通用设备适配器。 |
+| 稳定的 UPnP/OpenHome 推流 | 播放提交后手机无需保持控制会话；软路由继续提供播放地址，并接收后续控制请求。无需等待入库，实际表现取决于数播的网络播放实现。 |
 | 音源接入与下载校验 | 接收本地文件或白名单播放地址；声明长度不符时拒绝入库，不做隐式转码，避免残缺文件进入播放链路。 |
-| 常开缓存与容量管理 | 歌曲缓存后不再依赖手机保持连接或原始临时地址；重复播放不用再次下载，SQLite/LRU 控制软路由占用。 |
-| 数播本地曲库适配（推荐） | 可通过设备适配器复制并索引到数播本地库，使用设备自己的本地播放链路；公共项目提供接口，不含通用设备适配器。 |
-| UPnP/OpenHome 即时播放 | 无需等待入库即可播放，适合临时点播和不支持本地导入的设备；实际格式与音质表现取决于数播的网络播放实现。 |
+| 常开缓存与容量管理 | 歌曲缓存后不再依赖原始临时地址；重复播放不用再次下载，SQLite/LRU 控制软路由占用。 |
 | 播放控制 | 发现设备、正确切源、同设备串行控制、最后一次选歌优先，减少切歌串曲和旧请求覆盖。 |
 | 安全与运维 | 六小时内存令牌隐藏上游地址，日志和健康状态默认脱敏；缓存自动清理，管理面仅限回环，并提供 OpenWrt/systemd 支持。 |
 
@@ -85,24 +85,24 @@ make release-audit
 
 ## English
 
-LAN Music Bridge is a network-player hub that runs on a router. It takes a track file
-or playback URL you are authorized to use, then lets the always-on gateway validate,
-cache, and control delivery instead of relying on a phone session or temporary URL.
-It prefers the player's local library when an import adapter is available, with
-UPnP/OpenHome streaming as the fallback.
+LAN Music Bridge is a router-based hub for network players, built for listeners who
+care about sound quality and reliable playback. It downloads, validates, and caches
+tracks you are authorized to use. When a player's local path performs better than its
+network path, the bridge prefers a local-library import; otherwise, the always-on
+router provides UPnP/OpenHome streaming and control.
 
-For audio enthusiasts, the recurring problems are interrupted phone casting, an
-unexpected source-file version, unstable network playback, or a player whose local
-path works better than its streaming path. LAN Music Bridge handles reliable delivery
-after the source has been obtained; source-version selection and platform login remain
-the job of an external, authorized workflow.
+Phone-casting sessions and a player's network implementation do not always work well
+together, leading to interrupted playback, failed track changes, or stale requests.
+LAN Music Bridge takes over after the source has been obtained, stabilizing the source
+address and control order. Platform login and source-quality selection remain in an
+external, authorized workflow.
 
 | Capability | Problem it solves |
 |---|---|
-| Source input and download validation | Accepts local files or allow-listed playback URLs. A declared-length mismatch is rejected, and no implicit transcoding is performed, keeping incomplete files out of the playback path. |
-| Always-on cache and capacity management | Once cached, a track no longer depends on the phone staying connected or the original temporary URL. Replays need no new download, while SQLite/LRU limits router storage use. |
 | Local-library integration (preferred) | A device adapter can copy and index tracks into the player's library, using its own local playback path. The public project defines the interface but includes no universal device adapter. |
-| Immediate UPnP/OpenHome playback | Starts without waiting for a library import. It suits one-off playback and devices without local import; format support and audio performance depend on the player's network path. |
+| Stable UPnP/OpenHome streaming | Once playback is submitted, the phone need not keep a control session open. The router continues serving the playback URL and accepts later control requests. No library import is required; actual performance depends on the player's network path. |
+| Source input and download validation | Accepts local files or allow-listed playback URLs. A declared-length mismatch is rejected, and no implicit transcoding is performed, keeping incomplete files out of the playback path. |
+| Always-on cache and capacity management | Once cached, a track no longer depends on the original temporary URL. Replays need no new download, while SQLite/LRU limits router storage use. |
 | Playback control | Discovers devices, switches sources correctly, serializes control per device, and lets the latest track choice win, reducing mixed queues and stale requests. |
 | Security and operations | Six-hour in-memory tokens hide upstream URLs; logs and health state are redacted by default. Cache cleanup, loopback-only administration, and OpenWrt/systemd support keep the service manageable. |
 
