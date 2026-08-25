@@ -1,12 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 
+from . import __version__
 from .models import Renderer, ServiceEndpoint
 
 
@@ -49,7 +51,7 @@ def soap_call(
         headers={
             "Content-Type": 'text/xml; charset="utf-8"',
             "SOAPACTION": f'"{endpoint.service_type}#{action}"',
-            "User-Agent": "lan-music-bridge/0.1",
+            "User-Agent": f"lan-music-bridge/{__version__}",
         },
     )
     try:
@@ -87,10 +89,46 @@ def didl_metadata(title: str, uri: str, content_type: str = "audio/mpeg") -> str
 
 
 class RendererController:
-    def play(self, renderer: Renderer, uri: str, title: str = "LAN media", content_type: str = "audio/mpeg") -> str:
+    def __init__(self) -> None:
+        self._renderer_locks: dict[str, threading.RLock] = {}
+        self._renderer_locks_guard = threading.Lock()
+
+    def _renderer_lock(self, renderer: Renderer) -> threading.RLock:
+        key = renderer.udn or renderer.location
+        with self._renderer_locks_guard:
+            return self._renderer_locks.setdefault(key, threading.RLock())
+
+    def play(
+        self,
+        renderer: Renderer,
+        uri: str,
+        title: str = "LAN media",
+        content_type: str = "audio/mpeg",
+    ) -> str:
+        with self._renderer_lock(renderer):
+            return self._play_locked(renderer, uri, title, content_type)
+
+    def _play_locked(
+        self,
+        renderer: Renderer,
+        uri: str,
+        title: str,
+        content_type: str,
+    ) -> str:
         metadata = didl_metadata(title, uri, content_type)
         playlist = renderer.service("urn:av-openhome-org:service:Playlist:")
         if playlist:
+            product = renderer.service("urn:av-openhome-org:service:Product:")
+            if product:
+                # Playlist state can remain readable while another Product source is
+                # active. Select Playlist before mutation so a failed source switch
+                # leaves the prior queue untouched.
+                soap_call(
+                    renderer,
+                    product,
+                    "SetSourceBySystemName",
+                    {"Value": "Playlist"},
+                )
             soap_call(renderer, playlist, "DeleteAll")
             result = soap_call(
                 renderer,
@@ -116,6 +154,10 @@ class RendererController:
         raise ControlError("renderer exposes neither OpenHome Playlist nor UPnP AVTransport")
 
     def command(self, renderer: Renderer, action: str) -> str:
+        with self._renderer_lock(renderer):
+            return self._command_locked(renderer, action)
+
+    def _command_locked(self, renderer: Renderer, action: str) -> str:
         normalized = action.lower()
         if normalized not in {"play", "pause", "stop"}:
             raise ControlError("unsupported command")

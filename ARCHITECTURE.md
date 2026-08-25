@@ -31,9 +31,13 @@ Discovery sends bounded SSDP M-SEARCH requests. A response is accepted only when
 description URL resolves to the UDP responder. Description and SOAP bodies are capped
 at 1 MiB. OpenHome Playlist is preferred; UPnP AVTransport is the fallback.
 
-For a new item, the OpenHome sequence is `DeleteAll -> Insert -> SeekId -> Play`.
-UPnP uses `SetAVTransportURI -> Play`. The controller returns only a protocol receipt;
-it does not persist renderer names, addresses, queue metadata, or source URLs.
+For a new item, the controller selects the standard OpenHome `Playlist` Product
+source when the Product service is available, then runs
+`DeleteAll -> Insert -> SeekId -> Play`. Play and transport mutations are serialized
+per renderer so concurrent administration requests cannot interleave those steps.
+If Product source selection fails, queue mutation does not begin. UPnP uses
+`SetAVTransportURI -> Play`. The controller returns only a protocol receipt; it does
+not persist renderer names, addresses, queue metadata, or source URLs.
 
 ## Streaming path
 

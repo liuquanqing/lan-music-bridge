@@ -4,7 +4,8 @@ The automated suite verifies message construction and parsing with synthetic dev
 The implementation targets:
 
 - SSDP M-SEARCH for UPnP MediaRenderer and OpenHome Source devices;
-- OpenHome Playlist version 1 actions used for clear, insert, seek, and transport;
+- OpenHome Product version 1 source selection when advertised, followed by Playlist
+  version 1 actions used for clear, insert, seek, and transport;
 - UPnP AVTransport version 1 fallback;
 - HTTP/1.1 media delivery with a single byte range.
 
