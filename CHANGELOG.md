@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## 0.2.0 - 2026-08-25
 
+- Make the GitHub landing README bilingual, with Simplified Chinese displayed first
+  and the complete English introduction retained on the same page.
 - Select the standard OpenHome `Playlist` Product source before replacing its
   queue when a renderer exposes the Product service.
 - Serialize play and transport mutations per renderer so concurrent administration
