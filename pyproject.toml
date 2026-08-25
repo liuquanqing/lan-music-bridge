@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lan-music-bridge"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A vendor-neutral UPnP/OpenHome bridge with safe streaming and local media caching"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -23,3 +23,6 @@ lan-music-bridge = "lan_music_bridge.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "lan_music_bridge.__version__" }

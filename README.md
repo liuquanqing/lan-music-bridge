@@ -90,5 +90,6 @@ or compatibility guarantees from any device, platform, or service provider.
 - [Private deployment boundary](docs/MIGRATION.md)
 - [Release checklist](docs/RELEASE.md)
 - [Source provenance](PROVENANCE.md)
+- [Changelog](CHANGELOG.md)
 
 Licensed under Apache License 2.0.

@@ -7,6 +7,8 @@ import json
 import logging
 import re
 import threading
+
+from . import __version__
 from .net import open_source
 from .runtime import BridgeRuntime
 from .security import fingerprint, log_event, validate_source_url
@@ -45,7 +47,7 @@ class BridgeHTTPServer(http.server.ThreadingHTTPServer):
 
 
 class BaseHandler(http.server.BaseHTTPRequestHandler):
-    server_version = "lan-music-bridge/0.1"
+    server_version = f"lan-music-bridge/{__version__}"
     sys_version = ""
 
     @property
