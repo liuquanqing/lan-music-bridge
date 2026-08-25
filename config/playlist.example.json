@@ -1,0 +1,14 @@
+[
+  {
+    "mode": "local",
+    "source": "music/01.flac",
+    "title": "Track 01",
+    "content_type": "audio/flac"
+  },
+  {
+    "mode": "local",
+    "source": "music/02.flac",
+    "title": "Track 02",
+    "content_type": "audio/flac"
+  }
+]

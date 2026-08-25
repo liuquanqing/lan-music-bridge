@@ -8,11 +8,12 @@ from unittest import mock
 from lan_music_bridge import __version__
 from lan_music_bridge.control import (
     ControlError,
+    QueueMutationError,
     RendererController,
     didl_metadata,
     soap_call,
 )
-from lan_music_bridge.models import Renderer, ServiceEndpoint
+from lan_music_bridge.models import PreparedTrack, Renderer, ServiceEndpoint
 
 
 class ControlTests(unittest.TestCase):
@@ -127,6 +128,124 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(
             [item.args[2] for item in call.call_args_list],
             ["SetSourceBySystemName"],
+        )
+
+    @mock.patch("lan_music_bridge.control.soap_call")
+    def test_openhome_queue_is_inserted_in_order_and_starts_first_item(self, call):
+        call.side_effect = [
+            {},
+            {},
+            {"NewId": "10"},
+            {"NewId": "11"},
+            {},
+            {},
+        ]
+        product = ServiceEndpoint(
+            "urn:av-openhome-org:service:Product:1",
+            "http://192.0.2.20/product",
+        )
+        playlist = ServiceEndpoint(
+            "urn:av-openhome-org:service:Playlist:1",
+            "http://192.0.2.20/playlist",
+        )
+        renderer = Renderer(
+            "http://192.0.2.20/device.xml",
+            "Example",
+            "uuid:example",
+            {product.service_type: product, playlist.service_type: playlist},
+        )
+        tracks = (
+            PreparedTrack(
+                "http://192.0.2.10/media/first",
+                "First",
+                "audio/flac",
+                "local",
+                "first",
+            ),
+            PreparedTrack(
+                "http://192.0.2.10/media/second",
+                "Second",
+                "audio/flac",
+                "local",
+                "second",
+            ),
+        )
+
+        protocol = RendererController().replace_queue(renderer, tracks)
+
+        self.assertEqual(protocol, "openhome-playlist")
+        self.assertEqual(
+            [item.args[2] for item in call.call_args_list],
+            [
+                "SetSourceBySystemName",
+                "DeleteAll",
+                "Insert",
+                "Insert",
+                "SeekId",
+                "Play",
+            ],
+        )
+        self.assertEqual(call.call_args_list[2].args[3]["AfterId"], 0)
+        self.assertEqual(call.call_args_list[3].args[3]["AfterId"], "10")
+        self.assertIn("First", call.call_args_list[2].args[3]["Metadata"])
+        self.assertIn("Second", call.call_args_list[3].args[3]["Metadata"])
+        self.assertEqual(call.call_args_list[4].args[3], {"Value": "10"})
+
+    @mock.patch("lan_music_bridge.control.soap_call")
+    def test_avtransport_renderer_rejects_multi_track_queue(self, call):
+        transport = ServiceEndpoint(
+            "urn:schemas-upnp-org:service:AVTransport:1",
+            "http://192.0.2.20/transport",
+        )
+        renderer = Renderer(
+            "http://192.0.2.20/device.xml",
+            "Example",
+            "uuid:example",
+            {transport.service_type: transport},
+        )
+        track = PreparedTrack(
+            "http://192.0.2.10/media/first",
+            "First",
+            "audio/flac",
+            "local",
+            "first",
+        )
+
+        with self.assertRaisesRegex(ControlError, "OpenHome Playlist"):
+            RendererController().replace_queue(renderer, (track,))
+
+        call.assert_not_called()
+
+    @mock.patch("lan_music_bridge.control.soap_call")
+    def test_mid_mutation_failure_is_reported_as_possibly_partial(self, call):
+        playlist = ServiceEndpoint(
+            "urn:av-openhome-org:service:Playlist:1",
+            "http://192.0.2.20/playlist",
+        )
+        renderer = Renderer(
+            "http://192.0.2.20/device.xml",
+            "Example",
+            "uuid:example",
+            {playlist.service_type: playlist},
+        )
+        tracks = tuple(
+            PreparedTrack(
+                f"http://192.0.2.10/media/{name}",
+                name,
+                "audio/flac",
+                "local",
+                name,
+            )
+            for name in ("first", "second")
+        )
+        call.side_effect = [{}, {"NewId": "10"}, ControlError("insert failed")]
+
+        with self.assertRaisesRegex(QueueMutationError, "partially applied"):
+            RendererController().replace_queue(renderer, tracks)
+
+        self.assertEqual(
+            [item.args[2] for item in call.call_args_list],
+            ["DeleteAll", "Insert", "Insert"],
         )
 
     @mock.patch("lan_music_bridge.control.soap_call")

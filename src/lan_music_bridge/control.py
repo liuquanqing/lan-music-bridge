@@ -9,11 +9,19 @@ import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 
 from . import __version__
-from .models import Renderer, ServiceEndpoint
+from .models import PreparedTrack, Renderer, ServiceEndpoint
 
 
 class ControlError(RuntimeError):
     pass
+
+
+class QueueMutationError(ControlError):
+    """An OpenHome queue replacement failed after device mutation began."""
+
+
+class QueueUnsupportedError(ControlError):
+    """The renderer has no standard multi-track queue surface."""
 
 
 def _validate_control_url(url: str, renderer: Renderer) -> None:
@@ -107,6 +115,67 @@ class RendererController:
     ) -> str:
         with self._renderer_lock(renderer):
             return self._play_locked(renderer, uri, title, content_type)
+
+    def replace_queue(
+        self,
+        renderer: Renderer,
+        tracks: tuple[PreparedTrack, ...],
+    ) -> str:
+        if not tracks:
+            raise ValueError("queue must contain at least one item")
+        with self._renderer_lock(renderer):
+            return self._replace_queue_locked(renderer, tracks)
+
+    def _replace_queue_locked(
+        self,
+        renderer: Renderer,
+        tracks: tuple[PreparedTrack, ...],
+    ) -> str:
+        playlist = renderer.service("urn:av-openhome-org:service:Playlist:")
+        if not playlist:
+            raise QueueUnsupportedError(
+                "multi-track queues require an OpenHome Playlist service"
+            )
+        product = renderer.service("urn:av-openhome-org:service:Product:")
+        if product:
+            # Source selection happens before queue mutation. A failure here leaves
+            # the existing Playlist entries untouched.
+            soap_call(
+                renderer,
+                product,
+                "SetSourceBySystemName",
+                {"Value": "Playlist"},
+            )
+        try:
+            soap_call(renderer, playlist, "DeleteAll")
+            after_id: int | str = 0
+            first_id = ""
+            for track in tracks:
+                result = soap_call(
+                    renderer,
+                    playlist,
+                    "Insert",
+                    {
+                        "AfterId": after_id,
+                        "Uri": track.uri,
+                        "Metadata": didl_metadata(
+                            track.title, track.uri, track.content_type
+                        ),
+                    },
+                )
+                item_id = result.get("NewId", "")
+                if not item_id:
+                    raise ControlError("OpenHome Insert returned no NewId")
+                if not first_id:
+                    first_id = item_id
+                after_id = item_id
+            soap_call(renderer, playlist, "SeekId", {"Value": first_id})
+            soap_call(renderer, playlist, "Play")
+        except Exception as error:
+            raise QueueMutationError(
+                "OpenHome queue replacement may be partially applied"
+            ) from error
+        return "openhome-playlist"
 
     def _play_locked(
         self,

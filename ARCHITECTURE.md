@@ -6,7 +6,7 @@ LAN Music Bridge separates protocol control from source resolution and
 device-specific storage:
 
 ```text
-loopback CLI/admin API
+loopback CLI/admin API (single play or ordered queue)
         |
         v
 orchestrator ---- SSDP discovery ---- renderer descriptions
@@ -32,17 +32,30 @@ Discovery sends bounded SSDP M-SEARCH requests. A response is accepted only when
 description URL resolves to the UDP responder. Description and SOAP bodies are capped
 at 1 MiB. OpenHome Playlist is preferred; UPnP AVTransport is the fallback.
 
-For a new item, the controller selects the standard OpenHome `Playlist` Product
-source when the Product service is available, then runs
-`DeleteAll -> Insert -> SeekId -> Play`. Play and transport mutations are serialized
-per renderer so concurrent administration requests cannot interleave those steps.
+For one item, the controller selects the standard OpenHome `Playlist` Product source
+when the Product service is available, then runs
+`DeleteAll -> Insert -> SeekId -> Play`. The queue API accepts at most 100 items with
+`mode`, `source`, `title`, and optional `content_type` fields. The runtime prepares
+every item before device mutation. It then selects Playlist once and runs
+`DeleteAll -> Insert... -> SeekId(first) -> Play`, chaining each returned OpenHome ID
+to preserve order.
+
+Play, queue, and transport mutations are serialized per renderer so concurrent
+administration requests cannot interleave those steps.
 The runtime assigns a per-renderer intent generation before media preparation. A
-newer play or transport command supersedes any older request that has not begun its
-renderer mutation, so slower cache or publisher work cannot restore an obsolete
-target after the latest selection.
-If Product source selection fails, queue mutation does not begin. UPnP uses
-`SetAVTransportURI -> Play`. The controller returns only a protocol receipt; it does
-not persist renderer names, addresses, queue metadata, or source URLs.
+newer play, queue, or transport command supersedes any older request that has not
+begun its renderer mutation, so slower cache or publisher work cannot restore an
+obsolete target after the latest selection. Superseded and failed preparations discard
+their stream tokens.
+
+If Product source selection fails, queue mutation does not begin. Once `DeleteAll`
+starts, OpenHome SOAP has no transaction or rollback primitive; a later failure is
+reported as a possibly partial device queue, and prepared token URLs retain their
+normal six-hour lifetime in case the renderer already references them. UPnP uses
+`SetAVTransportURI -> Play` for one item. AVTransport has no standard multi-track queue
+operation, so the queue API rejects those renderers instead of claiming continuity.
+The controller returns only a protocol receipt; it does not persist renderer names,
+addresses, queue metadata, titles, or source URLs.
 
 ## Streaming path
 

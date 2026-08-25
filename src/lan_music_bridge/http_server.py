@@ -9,6 +9,7 @@ import re
 import threading
 
 from . import __version__
+from .control import QueueMutationError, QueueUnsupportedError
 from .net import open_source
 from .runtime import BridgeRuntime
 from .security import fingerprint, log_event, validate_source_url
@@ -234,6 +235,11 @@ class AdminHandler(BaseHandler):
                     title=str(payload.get("title", "LAN media")),
                     content_type=str(payload.get("content_type", "")),
                 )
+            elif route == "/v1/queue":
+                result = self.runtime.queue(
+                    selector=str(payload.get("renderer", "")),
+                    items=payload.get("items"),
+                )
             elif route == "/v1/control":
                 result = self.runtime.command(
                     selector=str(payload.get("renderer", "")),
@@ -243,6 +249,31 @@ class AdminHandler(BaseHandler):
                 self.send_body(404, "text/plain; charset=utf-8", b"not found")
                 return
             self.send_json(200, result)
+        except QueueUnsupportedError as error:
+            log_event(
+                logging.getLogger("lan_music_bridge.admin"),
+                "admin_request_failed",
+                route=route,
+                error_type=type(error).__name__,
+            )
+            self.send_json(
+                422,
+                {"error": "multi-track queue requires OpenHome Playlist"},
+            )
+        except QueueMutationError as error:
+            log_event(
+                logging.getLogger("lan_music_bridge.admin"),
+                "admin_request_failed",
+                route=route,
+                error_type=type(error).__name__,
+            )
+            self.send_json(
+                409,
+                {
+                    "error": "renderer queue update failed",
+                    "device_queue_may_be_partial": True,
+                },
+            )
         except Exception as error:
             log_event(
                 logging.getLogger("lan_music_bridge.admin"),

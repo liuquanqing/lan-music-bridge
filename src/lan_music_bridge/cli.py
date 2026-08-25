@@ -7,6 +7,7 @@ import logging
 import os
 import signal
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -26,8 +27,18 @@ def admin_request(settings: Settings, path: str, payload: dict[str, object] | No
         method="GET" if payload is None else "POST",
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=35) as response:
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(request, timeout=35) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        try:
+            result = json.load(error)
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+            result = {}
+        finally:
+            error.close()
+        message = result.get("error") if isinstance(result, dict) else None
+        raise SystemExit(f"request failed: {message or 'server rejected the request'}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -53,6 +64,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--content-type",
         default="",
         help="explicit media MIME type for strict renderers",
+    )
+    queue = commands.add_parser(
+        "queue", help="replace an OpenHome Playlist from a JSON file"
+    )
+    queue.add_argument("--renderer", required=True, help="exact UDN or friendly name")
+    queue.add_argument(
+        "--playlist",
+        required=True,
+        help="JSON array file, or - to read it from stdin",
     )
     control = commands.add_parser("control", help="send play, pause, or stop")
     control.add_argument("--renderer", required=True)
@@ -103,6 +123,36 @@ def main(argv: list[str] | None = None) -> int:
                 "title": args.title,
                 "content_type": args.content_type,
             },
+        )
+    elif args.command == "queue":
+        playlist_path = None if args.playlist == "-" else Path(args.playlist).resolve()
+        if playlist_path is None:
+            value = json.load(sys.stdin)
+            base = Path.cwd()
+        else:
+            with playlist_path.open("r", encoding="utf-8") as source:
+                value = json.load(source)
+            base = playlist_path.parent
+        if not isinstance(value, list):
+            raise SystemExit("playlist must be a JSON array")
+        items: list[object] = []
+        for value_item in value:
+            if not isinstance(value_item, dict):
+                items.append(value_item)
+                continue
+            item = dict(value_item)
+            source_value = item.get("source")
+            if (
+                item.get("mode") == "local"
+                and isinstance(source_value, str)
+                and not source_value.startswith(("http://", "https://"))
+            ):
+                item["source"] = str((base / source_value).resolve())
+            items.append(item)
+        result = admin_request(
+            settings,
+            "/v1/queue",
+            {"renderer": args.renderer, "items": items},
         )
     elif args.command == "control":
         result = admin_request(

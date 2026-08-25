@@ -43,3 +43,13 @@ class PlaybackReceipt:
     mode: str
     media_fingerprint: str
     protocol: str
+
+
+@dataclass(frozen=True)
+class PreparedTrack:
+    uri: str
+    title: str
+    content_type: str
+    mode: str
+    media_fingerprint: str
+    stream_token: str = ""

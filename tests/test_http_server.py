@@ -9,7 +9,13 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from lan_music_bridge.http_server import BridgeHTTPServer, MediaHandler, parse_byte_range
+from lan_music_bridge.control import QueueMutationError
+from lan_music_bridge.http_server import (
+    AdminHandler,
+    BridgeHTTPServer,
+    MediaHandler,
+    parse_byte_range,
+)
 from lan_music_bridge.runtime import BridgeRuntime
 
 from .helpers import settings_for
@@ -71,6 +77,83 @@ class MediaServerTests(unittest.TestCase):
         self.assertNotIn("127.0.0.1", rendered)
         self.assertIn("peer_fingerprint", rendered)
         self.assertIn("/stream/<redacted>", rendered)
+
+
+class AdminServerTests(unittest.TestCase):
+    def test_queue_route_passes_ordered_items_to_runtime(self):
+        class Runtime:
+            def __init__(self):
+                self.received = None
+
+            def queue(self, selector, items):  # noqa: ANN001
+                self.received = (selector, items)
+                return {"status": "accepted", "item_count": len(items)}
+
+        runtime = Runtime()
+        server = BridgeHTTPServer(("127.0.0.1", 0), AdminHandler, runtime)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        payload = {
+            "renderer": "uuid:example",
+            "items": [
+                {"mode": "local", "source": "/srv/music/first.flac"},
+                {"mode": "local", "source": "/srv/music/second.flac"},
+            ],
+        }
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{server.server_address[1]}/v1/queue",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request) as response:
+                result = json.load(response)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(2)
+
+        self.assertEqual(result["item_count"], 2)
+        self.assertEqual(runtime.received, ("uuid:example", payload["items"]))
+
+    def test_queue_mutation_failure_reports_possible_partial_state(self):
+        class Runtime:
+            def queue(self, selector, items):  # noqa: ANN001
+                del selector, items
+                raise QueueMutationError("details stay out of the response")
+
+        server = BridgeHTTPServer(("127.0.0.1", 0), AdminHandler, Runtime())
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{server.server_address[1]}/v1/queue",
+            data=json.dumps(
+                {
+                    "renderer": "uuid:example",
+                    "items": [{"mode": "local", "source": "/srv/music/a.flac"}],
+                }
+            ).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            try:
+                urllib.request.urlopen(request)
+            except urllib.error.HTTPError as error:
+                status = error.code
+                result = json.load(error)
+                error.close()
+            else:  # pragma: no cover - failure path asserted below
+                self.fail("queue mutation failure returned success")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(2)
+
+        self.assertEqual(status, 409)
+        self.assertEqual(result["device_queue_may_be_partial"], True)
+        self.assertNotIn("details", json.dumps(result))
 
 
 if __name__ == "__main__":

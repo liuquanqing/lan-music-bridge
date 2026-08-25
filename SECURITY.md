@@ -24,10 +24,13 @@ exact commit SHA are sufficient to begin triage.
   and HTTPS retains hostname certificate validation.
 - Stream URLs are held only in memory behind random tokens and expire after six hours.
 - Cache records persist fingerprints rather than raw source URLs.
+- Queue payloads are accepted only by the loopback administration API. Raw sources,
+  titles, and device identity are not persisted or written to structured logs.
 - `/health` and `/ready` return minimal state without authentication on the media
   listener. HTTP peer addresses are recorded only as irreversible short fingerprints;
   structured logs omit raw URLs, headers, queue metadata, and credentials. Error
-  responses are deliberately generic.
+  responses never echo input; queue mutation errors only state that device state may
+  be partial.
 - Downloads are size-capped, written atomically, and content-addressed. When an
   upstream declares `Content-Length`, a mismatch prevents blob publication. Without
   a declared length, the digest covers the bytes actually received and cannot prove

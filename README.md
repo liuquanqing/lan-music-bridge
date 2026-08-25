@@ -4,21 +4,21 @@
 
 ## 简体中文
 
-LAN Music Bridge 是部署在软路由上的数播音乐中枢，面向重视音质和播放稳定性的用户。
-它先下载、校验并缓存你有权使用的歌曲；对本地播放优于网络推流的数播，优先送入本地
-曲库，不能导入时再由常开软路由提供 UPnP/OpenHome 推流和控制。
+LAN Music Bridge 是部署在软路由上的数播音乐中枢。它接收外部流程交来的有序歌曲列表，
+按需校验、下载和缓存，再交给 OpenHome 数播按序播放；如果设备支持本地曲库适配，仍
+优先使用设备自己的本地播放链路。
 
-使用 QQ 音乐 QPlay 向部分数播推流时，当前曲能开始，下一首却可能接不上，也可能
-中途无声或无法拖动进度。LAN Music Bridge 补充数播欠缺的能力，让软路由接管缓存、
-播放队列和控制，减少对手机投播会话和数播原生推流实现的依赖。
+QPlay 通常会提交完整队列，但部分数播仍会出现下一首接不上、中途无声或无法拖动进度。
+本项目不接收 QPlay 会话，而是提供一个独立、可审计的队列入口，让软路由负责媒体地址、
+缓存和 OpenHome Playlist 提交，减少临时链接与控制竞态对播放的影响。
 
 | 功能 | 解决的问题 |
 |---|---|
 | 数播本地曲库适配（推荐） | 可通过设备适配器把歌曲复制并索引到数播本地库，使用设备自身的本地播放链路；公共项目提供接口，不含通用设备适配器。 |
-| 稳定的 UPnP/OpenHome 推流 | 播放提交后手机无需保持控制会话；软路由继续提供播放地址，并接收后续控制请求。支持播放器按区间读取，便于拖动进度；实际表现仍取决于数播的网络播放实现。 |
+| 有序 OpenHome 播放队列与控制 | CLI 或回环管理接口接收本地文件和白名单地址列表；全部项目准备成功后才按序替换数播 Playlist。自动发现并正确切源，同一设备串行控制，最后一次队列请求优先。 |
+| 稳定的 UPnP/OpenHome 推流 | 软路由持续提供播放地址并接收后续控制，支持播放器按区间读取；实际表现仍取决于数播的网络播放实现。 |
 | 音源接入与下载校验 | 接收本地文件或白名单播放地址；声明长度不符时拒绝入库，不做隐式转码，避免残缺文件进入播放链路。 |
 | 常开缓存与容量管理 | 歌曲缓存后不再依赖原始临时地址；重复播放不用再次下载，SQLite/LRU 控制软路由占用。 |
-| 播放控制 | 维护播放队列、发现设备、正确切源、同设备串行控制、最后一次选歌优先，减少下一首接不上、切歌串曲和旧请求覆盖。 |
 | 安全与运维 | 六小时内存令牌隐藏上游地址，日志和健康状态默认脱敏；缓存自动清理，管理面仅限回环，并提供 OpenWrt/systemd 支持。 |
 
 - 缓存不会自动提升音质；同一文件走相同解码路径时不会因缓存改变声音，本地播放是否
@@ -45,7 +45,7 @@ lan-music-bridge --config ./config.toml validate-config
 lan-music-bridge --config ./config.toml serve
 ~~~
 
-发现数播并播放本地文件或网络地址：
+发现数播并播放单曲：
 
 ~~~sh
 lan-music-bridge --config ./config.toml discover
@@ -56,6 +56,20 @@ printf '%s\n' 'https://media.example/path/to/audio' | \
   lan-music-bridge --config ./config.toml play \
   --renderer 'uuid:your-renderer' --mode stream --url-stdin
 ~~~
+
+提交多曲队列时，先准备一个 JSON 文件。`mode` 可为 `local` 或 `stream`；本地相对路径
+以 JSON 文件所在目录为基准，网络地址必须在配置白名单内。
+
+~~~sh
+cp config/playlist.example.json ./playlist.json
+lan-music-bridge --config ./config.toml queue \
+  --renderer 'uuid:your-renderer' --playlist ./playlist.json
+~~~
+
+含临时地址的列表可以通过 `--playlist -` 从标准输入传入，避免地址进入命令历史。
+多曲队列只支持 OpenHome Playlist；只有 AVTransport 的设备仍可使用单曲 `play`，不会被
+冒充为支持连续队列。设备执行 `DeleteAll` 后若 SOAP 写入中断，接口会明确报告设备队列
+可能只更新了一部分。
 
 ~~~sh
 make check
@@ -85,24 +99,23 @@ make release-audit
 
 ## English
 
-LAN Music Bridge is a router-based hub for network players, built for listeners who
-care about sound quality and reliable playback. It downloads, validates, and caches
-tracks you are authorized to use. When a player's local path performs better than its
-network path, the bridge prefers a local-library import; otherwise, the always-on
-router provides UPnP/OpenHome streaming and control.
+LAN Music Bridge is a router-based hub for network players. It accepts an ordered list
+of tracks from an external workflow, validates, downloads, and caches them as needed,
+then hands the queue to an OpenHome player in order. A device-local adapter remains the
+preferred path when a player has a stronger local-library implementation.
 
-When QQ Music uses QPlay with some network players, the first track may start but the
-next one does not, playback falls silent mid-track, or seeking fails. LAN Music Bridge
-adds the missing cache, queue, and control layer on the router, reducing dependence on
-the phone session and the player's native streaming implementation.
+QPlay normally submits a complete queue, yet some players still fail to advance, fall
+silent mid-track, or cannot seek reliably. This project does not receive QPlay sessions.
+It provides a separate, auditable queue input so the router can manage media URLs,
+caching, and OpenHome Playlist submission without relying on proprietary session state.
 
 | Capability | Problem it solves |
 |---|---|
 | Local-library integration (preferred) | A device adapter can copy and index tracks into the player's library, using its own local playback path. The public project defines the interface but includes no universal device adapter. |
-| Stable UPnP/OpenHome streaming | Once playback is submitted, the phone need not keep a control session open. The router continues serving the playback URL, accepts later control requests, and supports ranged reads for seeking. Actual performance still depends on the player's network path. |
+| Ordered OpenHome queues and control | The CLI or loopback admin API accepts local files and allow-listed URLs. The player Playlist is replaced in order only after every item is prepared. Discovery, source switching, per-player serialization, and latest-request-wins handling prevent queue writes from interleaving. |
+| Stable UPnP/OpenHome streaming | The router keeps serving the playback URL, accepts later control requests, and supports ranged reads. Actual performance still depends on the player's network path. |
 | Source input and download validation | Accepts local files or allow-listed playback URLs. A declared-length mismatch is rejected, and no implicit transcoding is performed, keeping incomplete files out of the playback path. |
 | Always-on cache and capacity management | Once cached, a track no longer depends on the original temporary URL. Replays need no new download, while SQLite/LRU limits router storage use. |
-| Playback control | Maintains the playback queue, discovers devices, switches sources correctly, serializes control per device, and lets the latest track choice win, reducing failed handoffs, mixed queues, and stale requests. |
 | Security and operations | Six-hour in-memory tokens hide upstream URLs; logs and health state are redacted by default. Cache cleanup, loopback-only administration, and OpenWrt/systemd support keep the service manageable. |
 
 - Caching does not improve sound automatically. Identical bytes on the same decode path
@@ -130,7 +143,7 @@ lan-music-bridge --config ./config.toml validate-config
 lan-music-bridge --config ./config.toml serve
 ~~~
 
-Find a player and play a local file or network URL:
+Find a player and play one local file or network URL:
 
 ~~~sh
 lan-music-bridge --config ./config.toml discover
@@ -141,6 +154,22 @@ printf '%s\n' 'https://media.example/path/to/audio' | \
   lan-music-bridge --config ./config.toml play \
   --renderer 'uuid:your-renderer' --mode stream --url-stdin
 ~~~
+
+For a multi-track queue, create a JSON array. `mode` may be `local` or `stream`;
+relative local paths are resolved from the JSON file, and network URLs must match the
+configured allow-list.
+
+~~~sh
+cp config/playlist.example.json ./playlist.json
+lan-music-bridge --config ./config.toml queue \
+  --renderer 'uuid:your-renderer' --playlist ./playlist.json
+~~~
+
+Use `--playlist -` to read lists containing temporary URLs from stdin instead of shell
+history. Multi-track queues require OpenHome Playlist. AVTransport-only players remain
+available through the single-track `play` command and are not presented as continuous-
+queue capable. If SOAP fails after `DeleteAll`, the API reports that the device queue
+may be only partially updated.
 
 ~~~sh
 make check

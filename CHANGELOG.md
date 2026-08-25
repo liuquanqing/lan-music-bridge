@@ -4,8 +4,14 @@ All notable changes to this project are documented in this file.
 
 ## 0.3.0 - Unreleased
 
-- Shorten the bilingual README, foreground local-playback quality and stable delivery,
-  and explain how the bridge's queue and control layer addresses phone-casting failures.
+- Add a real multi-track queue surface at `POST /v1/queue` and CLI `queue --playlist`,
+  accepting ordered local files or allow-listed URLs for OpenHome Playlist renderers.
+- Prepare every queue item before device mutation, insert tracks in order, seek the
+  first item, and make the latest renderer intent win across the complete operation.
+- Reject multi-track queues on AVTransport-only renderers, clean stream tokens after
+  failed or superseded preparation, and report possibly partial OpenHome mutations.
+- Update the bilingual README to distinguish ordered queue delivery from proprietary
+  phone-casting sessions and platform account or login support.
 - Make renderer intent last-target-wins across media preparation: a newer play or
   transport command supersedes any older request that has not started its renderer
   mutation.
