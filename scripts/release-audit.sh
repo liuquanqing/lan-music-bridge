@@ -47,9 +47,18 @@ if git grep --cached -I -l -E \
 fi
 
 if git grep --cached -I -l -i -E \
-	'(audimaxim|gustard|qplay|qq music|netease)' \
+	'(audimaxim|gustard|netease)' \
 	-- . ':(exclude)scripts/release-audit.sh' >/dev/null; then
 	echo "release audit failed: private/vendor brand residue" >&2
+	exit 1
+fi
+
+# QQ Music and QPlay may be named only in the public README to describe the
+# user-facing compatibility problem. Keep them out of source, config,
+# packaging, tests, and every other tracked file.
+if git grep --cached -I -l -i -E '(qplay|qq music)' \
+	-- . ':(exclude)README.md' ':(exclude)scripts/release-audit.sh' >/dev/null; then
+	echo "release audit failed: restricted brand outside README" >&2
 	exit 1
 fi
 

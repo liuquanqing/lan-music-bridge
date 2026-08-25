@@ -8,22 +8,22 @@ LAN Music Bridge 是部署在软路由上的数播音乐中枢，面向重视音
 它先下载、校验并缓存你有权使用的歌曲；对本地播放优于网络推流的数播，优先送入本地
 曲库，不能导入时再由常开软路由提供 UPnP/OpenHome 推流和控制。
 
-一些手机音乐应用的投播会话与数播的网络播放实现衔接不稳，常见结果是播放中断、
-切歌失败和旧请求覆盖。LAN Music Bridge 从“音源已经拿到”开始接管播放，稳定上游
-地址和控制顺序；音乐平台登录、音质版本选择仍由外部合法流程负责。
+使用 QQ 音乐 QPlay 向部分数播推流时，当前曲能开始，下一首却可能接不上，也可能
+中途无声或无法拖动进度。LAN Music Bridge 补充数播欠缺的能力，让软路由接管缓存、
+播放队列和控制，减少对手机投播会话和数播原生推流实现的依赖。
 
 | 功能 | 解决的问题 |
 |---|---|
 | 数播本地曲库适配（推荐） | 可通过设备适配器把歌曲复制并索引到数播本地库，使用设备自身的本地播放链路；公共项目提供接口，不含通用设备适配器。 |
-| 稳定的 UPnP/OpenHome 推流 | 播放提交后手机无需保持控制会话；软路由继续提供播放地址，并接收后续控制请求。无需等待入库，实际表现取决于数播的网络播放实现。 |
+| 稳定的 UPnP/OpenHome 推流 | 播放提交后手机无需保持控制会话；软路由继续提供播放地址，并接收后续控制请求。支持播放器按区间读取，便于拖动进度；实际表现仍取决于数播的网络播放实现。 |
 | 音源接入与下载校验 | 接收本地文件或白名单播放地址；声明长度不符时拒绝入库，不做隐式转码，避免残缺文件进入播放链路。 |
 | 常开缓存与容量管理 | 歌曲缓存后不再依赖原始临时地址；重复播放不用再次下载，SQLite/LRU 控制软路由占用。 |
-| 播放控制 | 发现设备、正确切源、同设备串行控制、最后一次选歌优先，减少切歌串曲和旧请求覆盖。 |
+| 播放控制 | 维护播放队列、发现设备、正确切源、同设备串行控制、最后一次选歌优先，减少下一首接不上、切歌串曲和旧请求覆盖。 |
 | 安全与运维 | 六小时内存令牌隐藏上游地址，日志和健康状态默认脱敏；缓存自动清理，管理面仅限回环，并提供 OpenWrt/systemd 支持。 |
 
 - 缓存不会自动提升音质；同一文件走相同解码路径时不会因缓存改变声音，本地播放是否
   更好取决于数播实现。
-- 项目不包含音乐平台账号、登录、音源解析或音质版本选择能力。
+- 项目接收用户正常使用的音乐文件或播放地址，不包含音乐平台账号和登录功能。
 
 ### 快速开始
 
@@ -91,25 +91,24 @@ tracks you are authorized to use. When a player's local path performs better tha
 network path, the bridge prefers a local-library import; otherwise, the always-on
 router provides UPnP/OpenHome streaming and control.
 
-Phone-casting sessions and a player's network implementation do not always work well
-together, leading to interrupted playback, failed track changes, or stale requests.
-LAN Music Bridge takes over after the source has been obtained, stabilizing the source
-address and control order. Platform login and source-quality selection remain in an
-external, authorized workflow.
+When QQ Music uses QPlay with some network players, the first track may start but the
+next one does not, playback falls silent mid-track, or seeking fails. LAN Music Bridge
+adds the missing cache, queue, and control layer on the router, reducing dependence on
+the phone session and the player's native streaming implementation.
 
 | Capability | Problem it solves |
 |---|---|
 | Local-library integration (preferred) | A device adapter can copy and index tracks into the player's library, using its own local playback path. The public project defines the interface but includes no universal device adapter. |
-| Stable UPnP/OpenHome streaming | Once playback is submitted, the phone need not keep a control session open. The router continues serving the playback URL and accepts later control requests. No library import is required; actual performance depends on the player's network path. |
+| Stable UPnP/OpenHome streaming | Once playback is submitted, the phone need not keep a control session open. The router continues serving the playback URL, accepts later control requests, and supports ranged reads for seeking. Actual performance still depends on the player's network path. |
 | Source input and download validation | Accepts local files or allow-listed playback URLs. A declared-length mismatch is rejected, and no implicit transcoding is performed, keeping incomplete files out of the playback path. |
 | Always-on cache and capacity management | Once cached, a track no longer depends on the original temporary URL. Replays need no new download, while SQLite/LRU limits router storage use. |
-| Playback control | Discovers devices, switches sources correctly, serializes control per device, and lets the latest track choice win, reducing mixed queues and stale requests. |
+| Playback control | Maintains the playback queue, discovers devices, switches sources correctly, serializes control per device, and lets the latest track choice win, reducing failed handoffs, mixed queues, and stale requests. |
 | Security and operations | Six-hour in-memory tokens hide upstream URLs; logs and health state are redacted by default. Cache cleanup, loopback-only administration, and OpenWrt/systemd support keep the service manageable. |
 
 - Caching does not improve sound automatically. Identical bytes on the same decode path
   are unchanged; whether local playback performs better depends on the player.
-- The project includes no music-platform accounts, login, source resolution, or
-  quality-version selection.
+- The project accepts music files or playback URLs used normally by the user. It does
+  not include music-platform accounts or login.
 
 ### Quick start
 

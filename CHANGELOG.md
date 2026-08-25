@@ -4,7 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## 0.3.0 - Unreleased
 
-- Shorten the bilingual README and foreground local-playback quality and stable delivery.
+- Shorten the bilingual README, foreground local-playback quality and stable delivery,
+  and explain how the bridge's queue and control layer addresses phone-casting failures.
 - Make renderer intent last-target-wins across media preparation: a newer play or
   transport command supersedes any older request that has not started its renderer
   mutation.

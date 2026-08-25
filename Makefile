@@ -9,6 +9,7 @@ check:
 release-audit:
 	./scripts/release-audit.sh
 	./scripts/test-release-audit-dotfiles.sh
+	./scripts/test-release-audit-brand-allowlist.sh
 
 clean:
 	find src tests -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
