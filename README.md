@@ -4,11 +4,17 @@
 
 ## 简体中文
 
-LAN Music Bridge 是部署在软路由上的数播音乐中枢。它要解决的是 QPlay/UPnP
-推流里最影响使用的几件事：下一首接不上、播放中途无声、无法拖动进度，以及本应为
-SQ 的歌曲被当成 HQ。完整部署可与外置接入服务配合，由软路由负责音源修正、
-下载校验、缓存和队列提交，再交给 OpenHome 数播播放。对本地播放表现更好的数播，
-还可通过设备适配器把已校验歌曲写入本地曲库；不具备本地导入条件时，再使用局域网推流。
+LAN Music Bridge 是部署在软路由上的数播音乐中枢，专门处理 QPlay/UPnP 推流中
+最影响体验的问题：下一首接不上、播放中途无声、无法拖动进度，以及本应为 SQ 的歌曲
+被当成 HQ。
+
+它可与外置接入服务配合，由软路由统一完成音源修正、下载校验、缓存和队列提交，
+再交给 OpenHome 数播按序播放。
+
+对本地播放音质优于推流的数播，还可通过设备适配器把已校验歌曲写入本地曲库。用户仍按推流
+方式选歌，实际播放改走设备自己的本地链路，从而获得更好的音质；不具备本地导入条件时，
+再使用局域网推流。在部分系统中，转发推流的音质表现会略逊于本地播放；如果必须推流，
+建议软路由使用稳定、低噪声的网络接口。对网络输入敏感的系统，可搭配供电和隔离更好的 HiFi USB 网卡。
 
 | 功能 | 描述 |
 |---|---|
@@ -94,13 +100,21 @@ make release-audit
 
 ## English
 
-LAN Music Bridge is a music hub that runs on a router. It targets the failures that
-matter most in QPlay/UPnP streaming: a queue that will not advance, silence during a
-track, broken seeking, or a track expected to be SQ appearing as HQ. A complete
-deployment pairs the public core with an external input service. The router corrects
-the source, validates and caches downloads, and submits the queue to an OpenHome player.
-For players that perform better from local storage, a device adapter can place verified
-tracks in the local library; LAN streaming remains available when local import is not.
+LAN Music Bridge is a network-player hub for routers. It addresses the QPlay/UPnP
+failures that most disrupt listening: a queue that will not advance, silence during a
+track, broken seeking, or a track expected to be SQ appearing as HQ.
+
+Paired with an external input service, it lets the router handle source correction,
+download validation, caching, and queue submission before an OpenHome player plays the
+tracks in order.
+
+For players whose local playback sounds better than network streaming, a device adapter
+can place verified tracks in the local library. The user keeps a casting-style way to
+choose music, while playback runs through the player's own local path for better sound.
+LAN streaming remains available when local import is not. On some systems, relayed
+streaming can sound slightly worse than local playback. When streaming is required,
+use a stable, low-noise network interface on the router; systems sensitive to network
+input may benefit from a USB network adapter with better power and isolation.
 
 | Capability | Description |
 |---|---|
