@@ -4,26 +4,21 @@
 
 ## 简体中文
 
-LAN Music Bridge 是部署在软路由上的数播音乐中枢。它接收外部流程交来的有序歌曲列表，
-按需校验、下载和缓存，再交给 OpenHome 数播按序播放；如果设备支持本地曲库适配，仍
-优先使用设备自己的本地播放链路。
+LAN Music Bridge 是部署在软路由上的数播音乐中枢。它要解决的是 QPlay/UPnP
+推流里最影响使用的几件事：下一首接不上、播放中途无声、无法拖动进度，以及本应为
+SQ 的歌曲被当成 HQ。完整部署可与外置接入服务配合，由软路由负责音源修正、
+下载校验、缓存和队列提交，再交给 OpenHome 数播播放。对本地播放表现更好的数播，
+还可通过设备适配器把已校验歌曲写入本地曲库；不具备本地导入条件时，再使用局域网推流。
 
-QPlay 通常会提交完整队列，但部分数播仍会出现下一首接不上、中途无声或无法拖动进度。
-本项目不接收 QPlay 会话，而是提供一个独立、可审计的队列入口，让软路由负责媒体地址、
-缓存和 OpenHome Playlist 提交，减少临时链接与控制竞态对播放的影响。
-
-| 功能 | 解决的问题 |
+| 功能 | 描述 |
 |---|---|
-| 数播本地曲库适配（推荐） | 可通过设备适配器把歌曲复制并索引到数播本地库，使用设备自身的本地播放链路；公共项目提供接口，不含通用设备适配器。 |
-| 有序 OpenHome 播放队列与控制 | CLI 或回环管理接口接收本地文件和白名单地址列表；全部项目准备成功后才按序替换数播 Playlist。自动发现并正确切源，同一设备串行控制，最后一次队列请求优先。 |
-| 稳定的 UPnP/OpenHome 推流 | 软路由持续提供播放地址并接收后续控制，支持播放器按区间读取；实际表现仍取决于数播的网络播放实现。 |
-| 音源接入与下载校验 | 接收本地文件或白名单播放地址；声明长度不符时拒绝入库，不做隐式转码，避免残缺文件进入播放链路。 |
-| 常开缓存与容量管理 | 歌曲缓存后不再依赖原始临时地址；重复播放不用再次下载，SQLite/LRU 控制软路由占用。 |
-| 安全与运维 | 六小时内存令牌隐藏上游地址，日志和健康状态默认脱敏；缓存自动清理，管理面仅限回环，并提供 OpenWrt/systemd 支持。 |
-
-- 缓存不会自动提升音质；同一文件走相同解码路径时不会因缓存改变声音，本地播放是否
-  更好取决于数播实现。
-- 项目接收用户正常使用的音乐文件或播放地址，不包含音乐平台账号和登录功能。
+| 推流接入与音源修正 | 外置接入服务可承接 UPnP/QPlay 推流，修正特定来源的地址或元数据，再把文件、白名单地址和有序队列交给公共核心。它不会把 MP3 伪装成 FLAC。 |
+| QQ 音乐 SQ 保真（可选外置服务） | 使用手机 QQ 或 QQ 音乐扫码登录，无需在软路由输入账号密码。服务按已付费账号的实际权益请求 SQ/FLAC，并校验歌曲身份和下载文件；已确认为 SQ 的歌曲不会静默降为 HQ，HQ 也不会冒充 SQ。请求 SQ 而平台未返回合格 SQ 时会明确失败；普通/HQ 请求保留原等级。该服务尚未包含在本公共仓库内。 |
+| 下载校验与本地缓存 | 支持本地文件和白名单播放地址。下载完成后核对声明长度并按 SHA-256 入库；SQLite/LRU 复用歌曲并控制磁盘占用。 |
+| OpenHome 有序队列 | 一次接收完整歌曲列表，全部项目准备成功后按序替换 Playlist，并从第一首开始播放。同一数播串行执行，最后一次队列请求优先。 |
+| 稳定的局域网推流 | 为歌曲生成六小时内存令牌，隐藏上游地址；支持 Range 和显式媒体类型，不做隐式转码，可供数播读取和拖动进度。 |
+| 数播本地曲库适配（推荐） | 设备适配器可把已校验歌曲复制并索引到数播本地硬盘，使用设备自己的本地播放链路；对本地播放优于推流的数播，可发挥本地链路的音质优势。公共项目提供接口，具体设备需要对应适配器。 |
+| 发现、控制与运维 | SSDP 自动发现数播，支持播放、暂停、停止和正确切源；提供脱敏健康状态、回环管理接口及 OpenWrt/systemd 部署支持。 |
 
 ### 快速开始
 
@@ -99,29 +94,23 @@ make release-audit
 
 ## English
 
-LAN Music Bridge is a router-based hub for network players. It accepts an ordered list
-of tracks from an external workflow, validates, downloads, and caches them as needed,
-then hands the queue to an OpenHome player in order. A device-local adapter remains the
-preferred path when a player has a stronger local-library implementation.
+LAN Music Bridge is a music hub that runs on a router. It targets the failures that
+matter most in QPlay/UPnP streaming: a queue that will not advance, silence during a
+track, broken seeking, or a track expected to be SQ appearing as HQ. A complete
+deployment pairs the public core with an external input service. The router corrects
+the source, validates and caches downloads, and submits the queue to an OpenHome player.
+For players that perform better from local storage, a device adapter can place verified
+tracks in the local library; LAN streaming remains available when local import is not.
 
-QPlay normally submits a complete queue, yet some players still fail to advance, fall
-silent mid-track, or cannot seek reliably. This project does not receive QPlay sessions.
-It provides a separate, auditable queue input so the router can manage media URLs,
-caching, and OpenHome Playlist submission without relying on proprietary session state.
-
-| Capability | Problem it solves |
+| Capability | Description |
 |---|---|
-| Local-library integration (preferred) | A device adapter can copy and index tracks into the player's library, using its own local playback path. The public project defines the interface but includes no universal device adapter. |
-| Ordered OpenHome queues and control | The CLI or loopback admin API accepts local files and allow-listed URLs. The player Playlist is replaced in order only after every item is prepared. Discovery, source switching, per-player serialization, and latest-request-wins handling prevent queue writes from interleaving. |
-| Stable UPnP/OpenHome streaming | The router keeps serving the playback URL, accepts later control requests, and supports ranged reads. Actual performance still depends on the player's network path. |
-| Source input and download validation | Accepts local files or allow-listed playback URLs. A declared-length mismatch is rejected, and no implicit transcoding is performed, keeping incomplete files out of the playback path. |
-| Always-on cache and capacity management | Once cached, a track no longer depends on the original temporary URL. Replays need no new download, while SQLite/LRU limits router storage use. |
-| Security and operations | Six-hour in-memory tokens hide upstream URLs; logs and health state are redacted by default. Cache cleanup, loopback-only administration, and OpenWrt/systemd support keep the service manageable. |
-
-- Caching does not improve sound automatically. Identical bytes on the same decode path
-  are unchanged; whether local playback performs better depends on the player.
-- The project accepts music files or playback URLs used normally by the user. It does
-  not include music-platform accounts or login.
+| Stream input and source correction | An external input service can accept UPnP/QPlay streams, correct source addresses or metadata, and pass files, allow-listed URLs, and an ordered queue to the public core. It does not disguise MP3 as FLAC. |
+| QQ Music SQ integrity (optional external service) | Sign in by scanning a QR code in mobile QQ or QQ Music; no account password is entered on the router. The service requests SQ/FLAC within the paid account's actual entitlement and verifies track identity and the downloaded file. A track already verified as SQ is not silently downgraded to HQ, and HQ is never presented as SQ. An SQ request fails clearly if the platform returns no valid SQ; ordinary or HQ requests retain their original tier. This service is not included in the public repository. |
+| Download validation and cache | Accepts local files and allow-listed URLs. Declared lengths are checked before SHA-256 storage; SQLite/LRU reuses tracks while limiting disk use. |
+| Ordered OpenHome queues | Accepts a complete track list, prepares every item, replaces the Playlist in order, and starts from the first track. Operations are serialized per player and the latest queue request wins. |
+| Stable LAN streaming | Six-hour in-memory tokens hide upstream addresses. Range requests and explicit media types are supported, with no implicit transcoding. |
+| Player-local library integration (preferred) | A device adapter can copy and index validated tracks on the player's local disk. On players where local playback outperforms streaming, this uses the better-sounding path. The public project provides the interface; each device needs a compatible adapter. |
+| Discovery, control, and operations | SSDP discovery, play/pause/stop, correct source switching, redacted health state, loopback administration, and OpenWrt/systemd deployment are included. |
 
 ### Quick start
 
